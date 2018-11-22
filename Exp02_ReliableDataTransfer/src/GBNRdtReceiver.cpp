@@ -6,6 +6,7 @@
 
 #include "GBNRdtProtocal.h"
 using GBNRdtProtocal::Receiver;
+#define RDX ( GBNRdtProtocal::seqnum_ceil )
 
 
 Receiver::Receiver(unsigned window_size) :
@@ -27,8 +28,7 @@ Receiver::~Receiver(void) {
 
 void Receiver::receive(Packet &pkt) {
     auto checksum = pUtils->calculateCheckSum(pkt);
-    if ((checksum == pkt.checksum)
-            && (pkt.seqnum == this->expected_seqnum)) {
+    if ((checksum == pkt.checksum) && (pkt.seqnum == this->expected_seqnum)) {
         // print debug message
         pUtils->printPacket("Receiver received expected packet", pkt);
         // make message and deliver to application layer
@@ -36,15 +36,14 @@ void Receiver::receive(Packet &pkt) {
         std::memcpy(msg.data, pkt.payload, sizeof(pkt.payload));
         pns->delivertoAppLayer(RECEIVER, msg);
         // reply ACK with index of next expected packet
-        this->expected_seqnum = (this->expected_seqnum + 1) % this->window_size;
+        this->expected_seqnum = (this->expected_seqnum + 1) % RDX;
         this->last_ack_pkt.acknum = this->expected_seqnum;  // ask for next packet
-        this->last_ack_pkt.checksum = \
-            pUtils->calculateCheckSum(this->last_ack_pkt);
+        this->last_ack_pkt.checksum = pUtils->calculateCheckSum(this->last_ack_pkt);
         pUtils->printPacket("Receiver sending ACK packet", this->last_ack_pkt);
         pns->sendToNetworkLayer(SENDER, this->last_ack_pkt);
     }
+    // if packet corrupted or out of order, re-send ACK for expected packet
     else {
-        // print log message
         if (checksum != pkt.checksum) {
             pUtils->printPacket("Receiver received corrupted packet", pkt);
         }
@@ -58,8 +57,7 @@ void Receiver::receive(Packet &pkt) {
                 "unrecognized condition!");
         }
         // resend last ACK packet
-        pUtils->printPacket("Receiver re-sending ACK packet",
-            this->last_ack_pkt);
+        pUtils->printPacket("Receiver re-sending ACK packet", this->last_ack_pkt);
         pns->sendToNetworkLayer(SENDER, this->last_ack_pkt);
     }
     return;

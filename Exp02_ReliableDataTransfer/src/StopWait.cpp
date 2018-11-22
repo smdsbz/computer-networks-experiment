@@ -6,14 +6,15 @@
 #include "RdtSender.h"
 #include "RdtReceiver.h"
 
-#define PROTOCAL_SR
+
+#define PROTOCAL_FAKETCP
 
 #if defined(PROTOCAL_STOPWAIT)
 #include "StopWaitRdtSender.h"
 #include "StopWaitRdtReceiver.h"
 using Sender = StopWaitRdtSender;
 using Sender = StopWaitRdtReceiver;
-#elif defined(PROTOCAL_GBN)
+#elif defined(PROTOCAL_GBN) || defined(PROTOCAL_FAKETCP)
 #include "GBNRdtProtocal.h"
 using Sender = GBNRdtProtocal::Sender;
 using Receiver = GBNRdtProtocal::Receiver;
@@ -22,13 +23,17 @@ using Receiver = GBNRdtProtocal::Receiver;
 using Sender = SRRdtProtocal::Sender;
 using Receiver = SRRdtProtocal::Receiver;
 #else
-#error Unknown potocal!
+#error Unknown protocal!
 #endif
 
 
 int main(int argc, char** argv[])
 {
+	#if defined(PROTOCAL_FAKETCP)
+	RdtSender *ps = new Sender(true);
+	#else
 	RdtSender *ps = new Sender();
+	#endif
 	RdtReceiver * pr = new Receiver();
 	pns->init();
 	pns->setRtdSender(ps);

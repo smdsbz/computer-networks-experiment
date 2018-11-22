@@ -9,8 +9,10 @@
 // Namespace for my implementation of GBN protocal
 namespace GBNRdtProtocal {
 
-    const int inital_seqnum = 1;
-    const int initial_window_size = 4;
+    const int seqnum_ceil = 8;
+
+    const int inital_seqnum = 0;
+    const int initial_window_size = GBNRdtProtocal::seqnum_ceil / 2;
 
     // GBN receiver class
     class Receiver : public RdtReceiver {
@@ -33,6 +35,9 @@ namespace GBNRdtProtocal {
     // GBN sender class
     class Sender : public RdtSender {
 
+        const bool using_fast_resend;
+        int missed_ack_cnt = 0;
+
         // window size agreed by both ends of the connection
         int window_size = GBNRdtProtocal::initial_window_size;
         int window_base;            // currently earliest non-ACK-ed packet
@@ -40,7 +45,10 @@ namespace GBNRdtProtocal {
 
     public:
 
-        Sender(unsigned window_size = GBNRdtProtocal::initial_window_size);
+        Sender(
+            bool fast_resend = false,
+            unsigned window_size = GBNRdtProtocal::initial_window_size
+        );
         virtual ~Sender(void);
         // if not busy, send and return `true`; else return `false`
         virtual bool send(Message &msg);

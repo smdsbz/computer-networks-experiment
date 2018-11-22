@@ -6,15 +6,20 @@
 #include <queue>
 
 #include "GBNRdtProtocal.h"
+#define RDX ( GBNRdtProtocal::seqnum_ceil )
 using GBNRdtProtocal::Sender;
 
 
-Sender::Sender(unsigned window_size) :
+Sender::Sender(bool fast_resend, unsigned window_size) :
+        using_fast_resend(fast_resend),
         window_size(window_size),
         window_base(GBNRdtProtocal::inital_seqnum) {
     if (window_size <= 0) {
         throw std::runtime_error("Sender window must have positive window"
             "size");
+    }
+    if (this->using_fast_resend) {
+        std::cout << "Fast resend enabled!" << std::endl;
     }
     return;
 }
@@ -36,7 +41,7 @@ bool Sender::send(Message &msg) {
     this->window.push_back(Packet());   // make placeholder
     Packet &new_pkt = this->window.back();
     // NOTE: acknum not required thus ignored
-    new_pkt.seqnum = (window_base + this->window.size() - 1) % this->window_size;
+    new_pkt.seqnum = (this->window_base + this->window.size() - 1) % RDX;
     // NOTE: require `sizeof(Message::data) == sizeof(Packet::payload)`
     std::memcpy(new_pkt.payload, msg.data, sizeof(msg.data));
     new_pkt.checksum = pUtils->calculateCheckSum(new_pkt);
@@ -53,7 +58,26 @@ void Sender::receive(Packet &pkt) {
     auto checksum = pUtils->calculateCheckSum(pkt);
     // legit ACK packet
     if (checksum == pkt.checksum) {
-        // reassign window base loaction
+        /**** fast-resend plugin ****/
+        if (pkt.acknum != (this->window_base + 1) % RDX) {
+            ++this->missed_ack_cnt;
+            if (this->missed_ack_cnt == 4) {
+                this->missed_ack_cnt = 0;
+                if (this->using_fast_resend && !this->window.empty()) {
+                    // resend lefter-most packet in window
+                    pns->stopTimer(SENDER, SENDER_TIMER_ID);
+                    pUtils->printPacket("Sender sending earliest packet in window due to fast-resend", this->window.front());
+                    pns->sendToNetworkLayer(RECEIVER, this->window.front());
+                    pns->startTimer(SENDER, Configuration::TIME_OUT, SENDER_TIMER_ID);
+                }
+            }
+        }
+        else {
+            this->missed_ack_cnt = 0;
+        }
+        /**** end fast-resend plugin ****/
+        // reassign window base loaction, i.e. ealiest sent but not yet ACK-ed packet
+        // HACK: always have `acknum <= window_base + 1`
         this->window_base = pkt.acknum;
         // do clean up
         while ((!this->window.empty())
@@ -66,10 +90,9 @@ void Sender::receive(Packet &pkt) {
             pns->startTimer(SENDER, Configuration::TIME_OUT, SENDER_TIMER_ID);
         }
     }
-    // corrupted packet
+    // if corrupted packet, do nothing
     else {
         pUtils->printPacket("Sender received corrupted packet", pkt);
-        // do nothing about corrupted ACK packet
         /* pass */
     }
     return;
@@ -80,8 +103,7 @@ void Sender::timeoutHandler(int seqnum) {
     // NOTE: `seqnum` not used in GBN protocal thus ignored
     // resend all packet in window
     for (auto &each : this->window) {
-        pUtils->printPacket("Sender re-sent previous packet due to timeout",
-            each);
+        pUtils->printPacket("Sender re-sent previous packet due to timeout", each);
         pns->sendToNetworkLayer(RECEIVER, each);
     }
     pns->startTimer(SENDER, Configuration::TIME_OUT, SENDER_TIMER_ID);
