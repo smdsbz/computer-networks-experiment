@@ -27,6 +27,7 @@ namespace SRRdtProtocal {
 
         virtual void receive(Packet &pkt);
 
+        virtual void print_window(void);
     };
 
 
@@ -50,6 +51,8 @@ namespace SRRdtProtocal {
         virtual void receive(Packet &pkt);
         virtual void timeoutHandler(int seqnum);
         virtual bool getWaitingState(void);
+
+        virtual void print_window(void);
     };
 
 };

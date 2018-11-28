@@ -38,8 +38,8 @@ int main(int argc, char** argv[])
 	pns->init();
 	pns->setRtdSender(ps);
 	pns->setRtdReceiver(pr);
-	pns->setInputFile("..\\input.txt");
-	pns->setOutputFile("..\\output.txt");
+	pns->setInputFile("C:\\Users\\smdsbz\\Documents\\HUST\\CSIE1601\\Courseware\\Computer Networks\\computer-networks-experiment_local\\Exp02_TCPProtocal\\rdt-win-student\\input.txt");
+	pns->setOutputFile("C:\\Users\\smdsbz\\Documents\\HUST\\CSIE1601\\Courseware\\Computer Networks\\computer-networks-experiment_local\\Exp02_TCPProtocal\\rdt-win-student\\output.txt");
 	pns->start();
 
 	delete ps;

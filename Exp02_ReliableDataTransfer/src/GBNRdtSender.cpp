@@ -45,7 +45,7 @@ bool Sender::send(Message &msg) {
     // NOTE: require `sizeof(Message::data) == sizeof(Packet::payload)`
     std::memcpy(new_pkt.payload, msg.data, sizeof(msg.data));
     new_pkt.checksum = pUtils->calculateCheckSum(new_pkt);
-    pUtils->printPacket("Sender sending new packet", new_pkt);
+    // pUtils->printPacket("Sender sending new packet", new_pkt);
     pns->sendToNetworkLayer(RECEIVER, new_pkt);
     // start timer immediately for this packet
     pns->stopTimer(SENDER, SENDER_TIMER_ID);
@@ -66,7 +66,8 @@ void Sender::receive(Packet &pkt) {
                 if (this->using_fast_resend && !this->window.empty()) {
                     // resend lefter-most packet in window
                     pns->stopTimer(SENDER, SENDER_TIMER_ID);
-                    pUtils->printPacket("Sender sending earliest packet in window due to fast-resend", this->window.front());
+                    // pUtils->printPacket("Sender sending earliest packet in window due to fast-resend", this->window.front());
+                    std::cout << "fast resend sign" << std::endl;
                     pns->sendToNetworkLayer(RECEIVER, this->window.front());
                     pns->startTimer(SENDER, Configuration::TIME_OUT, SENDER_TIMER_ID);
                 }
@@ -79,6 +80,7 @@ void Sender::receive(Packet &pkt) {
         // reassign window base loaction, i.e. ealiest sent but not yet ACK-ed packet
         // HACK: always have `acknum <= window_base + 1`
         this->window_base = pkt.acknum;
+        this->print_window();
         // do clean up
         while ((!this->window.empty())
                 && (this->window.front().seqnum != this->window_base)) {
@@ -92,7 +94,7 @@ void Sender::receive(Packet &pkt) {
     }
     // if corrupted packet, do nothing
     else {
-        pUtils->printPacket("Sender received corrupted packet", pkt);
+        // pUtils->printPacket("Sender received corrupted packet", pkt);
         /* pass */
     }
     return;
@@ -103,7 +105,7 @@ void Sender::timeoutHandler(int seqnum) {
     // NOTE: `seqnum` not used in GBN protocal thus ignored
     // resend all packet in window
     for (auto &each : this->window) {
-        pUtils->printPacket("Sender re-sent previous packet due to timeout", each);
+        // pUtils->printPacket("Sender re-sent previous packet due to timeout", each);
         pns->sendToNetworkLayer(RECEIVER, each);
     }
     pns->startTimer(SENDER, Configuration::TIME_OUT, SENDER_TIMER_ID);
@@ -113,4 +115,17 @@ void Sender::timeoutHandler(int seqnum) {
 
 bool Sender::getWaitingState(void) {
     return (this->window.size() == this->window_size);
+}
+
+
+void Sender::print_window(void) {
+    std::cout << "Printing sender window..." << std::endl;
+    if (this->window.empty()) {
+        std::cout << "(Empty window)" << std::endl;
+    }
+    else {
+        for (auto &each : this->window) {
+            pUtils->printPacket("", each);
+        }
+    }
 }

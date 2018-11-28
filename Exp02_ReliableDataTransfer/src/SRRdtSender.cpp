@@ -59,9 +59,9 @@ bool Sender::send(Message &msg) {
             % SRRdtProtocal::seqnum_ceil
     ] = ptr_pkt;
     // send to remote receiver
-    pUtils->printPacket("Sender sending new packet", *ptr_pkt);
+    // pUtils->printPacket("Sender sending new packet", *ptr_pkt);
     pns->sendToNetworkLayer(RECEIVER, *ptr_pkt);
-    this->printStat();
+    // this->printStat();
     // start timer
     pns->startTimer(SENDER, Configuration::TIME_OUT, ptr_pkt->seqnum);
     return true;
@@ -72,17 +72,17 @@ void Sender::receive(Packet &pkt) {
     auto checksum = pUtils->calculateCheckSum(pkt);
     // ignore corrupted ACK packet
     if (checksum != pkt.checksum) {
-        pUtils->printPacket("Sender received corrupted ACK packet", pkt);
+        // pUtils->printPacket("Sender received corrupted ACK packet", pkt);
         return;
     }
     // ignore out-ranged ACK packet
     int diff = (pkt.acknum - this->window_base + SRRdtProtocal::seqnum_ceil) % SRRdtProtocal::seqnum_ceil;
     if (diff >= this->window_size) {
-        pUtils->printPacket("Sender received ACK packet out of window", pkt);
-        this->printStat();
+        // pUtils->printPacket("Sender received ACK packet out of window", pkt);
+        // this->printStat();
         return;
     }
-    pUtils->printPacket("Sender received valid ACK packet", pkt);
+    // pUtils->printPacket("Sender received valid ACK packet", pkt);
     // mark packet as ACK-ed
     Packet * &target_cell = this->window[diff];
     delete target_cell;
@@ -91,7 +91,7 @@ void Sender::receive(Packet &pkt) {
     pns->stopTimer(SENDER, pkt.acknum);
     // if ACK-ing window base, do buffer clean up
     std::cout << "before cleanup" << std::endl;
-    this->printStat();
+    // this->printStat();
     int range = (this->last_pkt_seqnum - this->window_base + SRRdtProtocal::seqnum_ceil) % SRRdtProtocal::seqnum_ceil;
     std::cout << "cleanup range = " << range << std::endl;
     if (range >= this->window_size) {
@@ -101,9 +101,10 @@ void Sender::receive(Packet &pkt) {
         this->window.pop_front();
         this->window.push_back(0);
         this->window_base = (this->window_base + 1) % SRRdtProtocal::seqnum_ceil;
+        this->print_window();
     }
     std::cout << "after cleanup" << std::endl;
-    this->printStat();
+    // this->printStat();
     return;
 }
 
@@ -114,7 +115,8 @@ void Sender::timeoutHandler(int seqnum) {
         (seqnum - this->window_base + SRRdtProtocal::seqnum_ceil)
             % SRRdtProtocal::seqnum_ceil
     ];
-    pUtils->printPacket("Sender re-sending packet", pkt);
+    // pUtils->printPacket("Sender re-sending packet", pkt);
+    std::cout << "selective resend" << std::endl;
     pns->sendToNetworkLayer(RECEIVER, pkt);
     pns->startTimer(SENDER, Configuration::TIME_OUT, seqnum);
     return;
@@ -127,4 +129,22 @@ bool Sender::getWaitingState(void) {
             % SRRdtProtocal::seqnum_ceil
         == this->window_size
     );
+}
+
+
+void Sender::print_window(void) {
+    std::cout << "Printing sender window..." << std::endl;
+    if (this->window.empty()) {
+        std::cout << "(Empty window)" << std::endl;
+    }
+    else {
+        for (auto &each : this->window) {
+            if (each != 0) {
+                pUtils->printPacket("", *each);
+            }
+            else {
+                std::cout << "(packet chekced)" << std::endl;
+            }
+        }
+    }
 }
